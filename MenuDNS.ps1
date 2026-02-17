@@ -48,6 +48,21 @@ function VerificarServicio {
     }
 }
 
+function ValidarDominio{
+    param (
+        [string]$dominio
+    )
+
+    $regex = '^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$'
+
+    if ($dominio -match $regex){
+        return $true
+    }else {
+        Write-Host  "Dominio no valido, intenta de nuevo"
+        return $false
+    }
+}
+
 function Instalar {
     Install-WindowsFeature -Name DNS -IncludeManagementTools
 }
@@ -63,10 +78,10 @@ function Configurar {
     return
     }
 
-    $adapter = Get-NetIPAddress -InterfaceAlias "Ethernet 1"
+    $adapter = Get-NetIPInterface -InterfaceAlias "Ethernet1" -AddressFamily IPv4
     if ($adapter.Dhcp -eq "Disabled"){
         Write-Host "Se cuenta con IP fija"
-        $IP = (Get-NetIPAddress -InterfaceAlias "Ethernet 1" -AddressFamily IPv4).IPAddress
+        $IP = (Get-NetIPAddress -InterfaceAlias "Ethernet1" -AddressFamily IPv4).IPAddress
         Write-Host "La IP fija detectada es $IP"
 
     }  else {
@@ -85,7 +100,9 @@ function Configurar {
         }
     }
 
-    $dominio = Read-Host "Ingresa el dominio: "
+    do {
+        $dominio = Read-Host "Ingresa el dominio: "
+    } until (ValidarDominio $dominio)
     
     Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio.dns"
     Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
@@ -102,8 +119,10 @@ function Reconfigurar {
 }
 
 function Agregar{
-    $dominio = Read-Host "Ingresa el dominio: "
-    $IP = Read-Host "Ingresa IP dominio"
+    do {
+        $dominio = Read-Host "Ingresa el dominio: "
+    } until (ValidarDominio $dominio)
+    $IP = (Get-NetIPAddress -InterfaceAlias "Ethernet1" -AddressFamily IPv4).IPAddress
     Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio"
     Write-Host "Dominio creado: $dominio"
     Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
@@ -111,19 +130,30 @@ function Agregar{
 }
 
 function Borrar{
-    $dominio = Read-Host "Ingresa el dominio: "
+    do {
+        $dominio = Read-Host "Ingresa el dominio: "
+    } until (ValidarDominio $dominio)
     Remove-DnsServerZone -Name "$dominio" -Force
     Write-Host "Dominio eliminado: $dominio"
 }
 
 function Consultar{
-    $dominio = Read-Host "Ingresa el dominio: "
+    do {
+        $dominio = Read-Host "Ingresa el dominio: "
+    } until (ValidarDominio $dominio)
     $Zona = Get-DnsServerZone -Name $dominio -ErrorAction SilentlyContinue
     Get-DnsServerZone -Name "$dominio"
     Get-DnsServerResourceRecord -ZoneName "$dominio"
 }
 
 function ABC{
+
+    if ((Get-WindowsFeature -Name DNS).Installed) {
+
+    }else {
+        return
+    }
+
     Write-Host "Bienvenidio al ABC de DNS"
     Write-Host "++++++++ Menu de Opciones ++++++++"
     Write-Host "1.-Agregar"
@@ -141,6 +171,29 @@ function ABC{
     }
 }
 
+function Monitoreo{
+    Write-Host "++++++++ Monitoreo del servidor DNS ++++++++"
+    $dnsService = Get-Service -Name DNS -ErrorAction SilentlyContinue
+    if ($dnsService -and $dnsService.Status -eq "Running"){
+        Write-Host "El servidor DNS esta activo"
+    }else{
+        Write-Host "El servidor DNS no esta activo"
+        return
+    }
+    $zonas = Get-DnsServerZone -ErrorAction SilentlyContinue
+
+    if($zonas){
+        Write-Host "Zonas configuradas"
+        $zonas | Format-Table -Property ZoneName, ZoneType, IsReverseLookupZone
+    }else{
+        Write-Host "No hay zonas configuradas"
+    }
+
+    foreach ($zona in $zonas){
+        Write-Host "Registro en las zona $($zona.ZoneName) :"
+        Get-DnsServerResourceRecord -ZoneName $zona.ZoneName | Format-Table -Property HostName, RecordType, RecordData
+    }
+}
 
 $con = "S"
 
@@ -152,7 +205,8 @@ while ($con -match '^[sS]$') {
     Write-Host "3.-Configurar"
     Write-Host "4.-Reconfigurar"
     Write-Host "5.-ABC dominios"
-    Write-Host "6.-Salir"
+    Write-Host "6.-Monitoreo"
+    Write-Host "7.-Salir"
     $op = [int](Read-Host "Selecciona: ")
     switch($op){
         1{VerificarServicio}
@@ -160,7 +214,8 @@ while ($con -match '^[sS]$') {
         3{Configurar}
         4{Reconfigurar}
         5{ABC}
-        6{$con = "n"}
+        6{Monitoreo}
+        7{$con = "n"}
         default{Write-Host "Opcion no valida"}
     }
 }
