@@ -125,8 +125,9 @@ Instalar() {
     read -p "¿Deseas Instalarlo? (S/N): " r
     if [[ $r =~ ^[sS]$ ]]; then
     apt update -y -qq > /dev/null 2>&1
+    apt purge bind9 -y -qq > /dev/null 2>&1
     apt install -y -qq > /dev/null 2>&1
-    systemctl enable bind9 -y -qq > /dev/null 2>&1
+    echo "Instalacion finalizada"
     fi
 }
 
