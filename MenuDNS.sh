@@ -226,6 +226,7 @@ EOF
     $NEGTTL )   ; Negative Cache TTL
 
 @   IN NS ns1.$DOMINIO.
+@   IN A  $IP_DNS
 ns1 IN A  $IP_DNS
 www IN A  $IP_DNS
 EOF

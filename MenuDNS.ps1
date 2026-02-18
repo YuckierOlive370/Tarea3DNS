@@ -39,12 +39,7 @@ function VerificarServicio {
         Write-Host "DNS ya esta instalado."
     } else {
         Write-Host "DNS no esta instalado."
-        $respuesta = Read-Host "¿Deseas instalarlo ahora? (S/N)"
-        if ($respuesta -match '^[sS]$') {
-            Instalar
-        } else {
-            Write-Host "Instalacion cancelada por el usuario."
-        }
+        Instalar
     }
 }
 
@@ -64,7 +59,12 @@ function ValidarDominio{
 }
 
 function Instalar {
-    Install-WindowsFeature -Name DNS -IncludeManagementTools
+    $respuesta = Read-Host "¿Deseas instalarlo ahora? (S/N)"
+    if ($respuesta -match '^[sS]$') {
+        Install-WindowsFeature -Name DNS -IncludeManagementTools -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    } else {
+        Write-Host "Instalacion cancelada por el usuario."
+    }
 }
 
 function Configurar {
@@ -107,6 +107,9 @@ function Configurar {
     Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio.dns"
     Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
     Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
+    Add-DnsServerSecondaryZone -Name "$dominio" `
+    -MasterServers $IP `
+    -ZoneFile "$dominio.dns"
     Get-DnsServerZone -Name "$dominio"
     Get-DnsServerResourceRecord -ZoneName "$dominio"
 }
@@ -114,7 +117,7 @@ function Configurar {
 function Reconfigurar {
     Write-Host "Bienvenido a la reconfiguracion."
     Uninstall-WindowsFeature -Name DNS
-    Agregar
+    Instalar
     Configurar
 }
 
@@ -127,6 +130,9 @@ function Agregar{
     Write-Host "Dominio creado: $dominio"
     Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
     Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
+    Add-DnsServerSecondaryZone -Name "$dominio" `
+    -MasterServers $IP `
+    -ZoneFile "$dominio.dns"
 }
 
 function Borrar{
