@@ -93,6 +93,16 @@ PedirValor() {
     echo "${valor:-$defecto}"
 }
 
+ValidarDominio() {
+    local dominio=$1
+    # Regex: letras, números, guiones, puntos; debe terminar en TLD válido (2-63 caracteres)
+    if [[ $dominio =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,63}$ ]]; then
+        return 0  # válido
+    else
+        return 1  # inválido
+    fi
+}
+
 ConfigurarOpcionesBind() {
     echo "Configurando named.conf.options..."
 
@@ -125,13 +135,57 @@ Configurar() {
     echo "===== CONFIGURACIÓN DE DNS ====="
 
     # Datos principales
-    read -p "Dominio (ej: ejemplo.com): " DOMINIO
+
+    DOMINIO=""
+    until ValidarDominio "$DOMINIO"; do
+        read -p "Introduce el dominio (ej: ejemplo.com): " DOMINIO
+        if ! ValidarDominio "$DOMINIO"; then
+            echo "Dominio inválido, intenta de nuevo."
+        fi
+    done
+
+    echo "Dominio válido: $DOMINIO"
+
     if grep -q "zone \"$DOMINIO\"" /etc/bind/named.conf.local; then
     echo "La zona $DOMINIO ya existe"
     return
     fi
 
+    if grep -q "static" /etc/network/interfaces.d/$INTERFAZ.cfg 2>/dev/null; then
+
+    echo "Se asigno la IP fija"
+    IP_DNS=$(grep -A 2 "iface $INTERFAZ inet static" /etc/network/interfaces.d/$INTERFAZ.cfg 2>/dev/null | grep "address" | awk '{print $2}')
+
+    else
+
+    echo "Asignaras la IP fija"
     IP_DNS=$(PedirIp "IP del servidor DNS: ")
+    fi
+    mascara=$(CalcularMascara "$IP_DNS")
+    MASCARA="$mascara"
+
+    echo "IP fija del servidor: $IP_DNS"
+
+    rango_inicio=$(printf "%d.%d.%d.%d" \
+        $(( (inicioInt >> 24) & 255 )) \
+        $(( (inicioInt >> 16) & 255 )) \
+        $(( (inicioInt >> 8) & 255 )) \
+        $(( inicioInt & 255 ))
+    )
+
+    sudo bash -c "cat > /etc/network/interfaces.d/$INTERFAZ.cfg" <<EOF
+auto $INTERFAZ
+iface $INTERFAZ inet static
+    address $IP_DNS
+    netmask $mascara
+EOF
+
+    echo "Configuración de red escrita en /etc/network/interfaces.d/$INTERFAZ.cfg"
+    echo "Recargando interfaz..."
+    sudo ip addr flush dev $INTERFAZ
+    prefix=$(MaskToPrefix "$mascara")
+    sudo ip addr add $IP_DNS/$prefix dev $INTERFAZ
+    sudo ip link set $INTERFAZ up
     RED_INV=$(CalcularRedInversa "$IP_DNS")
 
     ConfigurarOpcionesBind
@@ -231,6 +285,44 @@ Reconfigurar() {
     fi
 }
 
+Monitoreo() {
+    echo "++++++++ Monitoreo del servidor DNS ++++++++"
+
+    if dpkg -l | grep -q bind9; then
+        estado=$(systemctl is-active bind9)
+        if [[ "$estado" == "active" ]]; then
+            echo "El servidor DNS está activo"
+        else
+            echo "El servidor DNS no está activo"
+            return
+        fi
+    else
+        echo "Bind9 no está instalado"
+        return
+    fi
+
+    echo ""
+    echo "Zonas configuradas:"
+    if [[ -f /etc/bind/named.conf.local ]]; then
+        grep "zone" /etc/bind/named.conf.local | awk '{print $2}' | tr -d '"' || echo "No hay zonas configuradas"
+    else
+        echo "No se encontró el archivo de configuración de zonas"
+    fi
+
+    echo ""
+    # Mostrar registros de cada zona
+    for zona in $(grep "zone" /etc/bind/named.conf.local | awk '{print $2}' | tr -d '"'); do
+        archivo=$(grep -A 2 "zone \"$zona\"" /etc/bind/named.conf.local | grep "file" | awk '{print $2}' | tr -d '";')
+        if [[ -f "$archivo" ]]; then
+            echo "Registros en la zona $zona:"
+            grep -E "IN" "$archivo" | awk '{print $1, $3, $4, $5}'
+        else
+            echo "No se encontró archivo de zona para $zona"
+        fi
+        echo ""
+    done
+}
+
 ABCdominios() {
     echo "===== ABC DE DOMINIOS DNS ====="
     echo "1) Alta (crear dominio)"
@@ -247,7 +339,14 @@ ABCdominios() {
 
         2)
             echo "Baja de dominio"
-            read -p "Dominio a eliminar (ej: ejemplo.com): " DOM
+
+            DOMINIO=""
+        until ValidarDominio "$DOM"; do
+            read -p "Introduce el dominio (ej: ejemplo.com): " DOM
+            if ! ValidarDominio "$DOM"; then
+                echo "Dominio inválido, intenta de nuevo."
+            fi
+        done
 
             # Obtener archivo de zona directa
             ZONA_DIR=$(grep -A2 "zone \"$DOM\"" /etc/bind/named.conf.local | awk -F\" '/file/ {print $2}')
@@ -297,7 +396,8 @@ while true; do
     echo "3.- Configurar"
     echo "4.- Reconfigurar"
     echo "5.- ABC Dominios"
-    echo "6.- Salir"
+    echo "6.- Monitoreo"
+    echo "7.- Salir"
     read -p "Selecciona una opción: " opcion
 
     case $opcion in
@@ -306,7 +406,8 @@ while true; do
         3) Configurar ;;
         4) Reconfigurar ;;
         5) ABCdominios ;;
-        6) echo "Saliendo..."; break ;;
+        6) Monitoreo ;;
+        7) echo "Saliendo..."; break ;;
         *) echo "Opción inválida" ;;
     esac
     echo ""
