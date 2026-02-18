@@ -69,8 +69,8 @@ VerificarServicio() {
         echo "DNS ya está instalado"
         read -p "¿Deseas reinstalarlo? (S/N): " r
         if [[ $r =~ ^[sS]$ ]]; then
-            apt purge bind9 -y
-            apt install bind9 dnsutils -y
+            apt purge bind9 -y -gg
+            apt install bind9 dnsutils -y -gg
         fi
     else
         echo "El servicio DNS no está instalado"
@@ -122,13 +122,12 @@ EOF
 }
 
 Instalar() {
-    if dpkg -l | grep -q bind9; then
-        echo "DNS ya esta instalado si quieres volver a instalarlo vee a Verificar servicio..."
-        return 1
-    fi
-    apt update
-    apt install bind9 dnsutils -y
+    read -p "¿Deseas Instalarlo? (S/N): " r
+    if [[ $r =~ ^[sS]$ ]]; then
+    apt update -qq
+    apt install -y -qq bind9 dnsutils
     systemctl enable bind9
+    fi
 }
 
 Configurar() {

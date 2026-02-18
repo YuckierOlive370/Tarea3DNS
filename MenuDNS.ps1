@@ -21,7 +21,7 @@ function Pedir-IP {
     do {
         $ip = Read-Host $mensaje
         if (-not (Validar-IP $ip)) {
-            Write-Host "IP no valida, intenta de nuevo"
+            Write-Host "IP no valida, intenta de nuevo" -ForegroundColor Red
         }
     } until (Validar-IP $ip)
 
@@ -51,9 +51,10 @@ function ValidarDominio{
     $regex = '^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$'
 
     if ($dominio -match $regex){
+        Write-Host  "Dominio valido" -ForegroundColor Green
         return $true
     }else {
-        Write-Host  "Dominio no valido, intenta de nuevo"
+        Write-Host  "Dominio no valido, intenta de nuevo" -ForegroundColor Red
         return $false
     }
 }
@@ -61,9 +62,11 @@ function ValidarDominio{
 function Instalar {
     $respuesta = Read-Host "¿Deseas instalarlo ahora? (S/N)"
     if ($respuesta -match '^[sS]$') {
+        Write-Host  "Instalando" -ForegroundColor Green
         Install-WindowsFeature -Name DNS -IncludeManagementTools -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        Write-Host  "Instalacion finalizad" -ForegroundColor Green
     } else {
-        Write-Host "Instalacion cancelada por el usuario."
+        Write-Host "Instalacion cancelada por el usuario." -ForegroundColor Red
     }
 }
 
@@ -96,7 +99,7 @@ function Configurar {
             -PrefixLength $prefix -ErrorAction Stop | Out-Null
         }
         catch {
-            Write-Host "No se asigno la IP fija"
+            Write-Host "No se asigno la IP fija" -ForegroundColor Red
         }
     }
 
@@ -104,14 +107,20 @@ function Configurar {
         $dominio = Read-Host "Ingresa el dominio: "
     } until (ValidarDominio $dominio)
     
-    Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio.dns"
-    Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
-    Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
-    Add-DnsServerSecondaryZone -Name "$dominio" `
-    -MasterServers $IP `
-    -ZoneFile "$dominio.dns"
-    Get-DnsServerZone -Name "$dominio"
-    Get-DnsServerResourceRecord -ZoneName "$dominio"
+    try{
+        Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio.dns"
+        Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
+        Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
+        Add-DnsServerSecondaryZone -Name "$dominio" `
+        -MasterServers $IP `
+        -ZoneFile "$dominio.dns"
+        Get-DnsServerZone -Name "$dominio"
+        Get-DnsServerResourceRecord -ZoneName "$dominio"
+        Write-Host "Se asigno Dominio: $dominio" -ForegroundColor Green
+    }
+    catch{
+        Write-Host  "No se asigno Dominio" -ForegroundColor Red
+    }
 }
 
 function Reconfigurar {
@@ -125,22 +134,32 @@ function Agregar{
     do {
         $dominio = Read-Host "Ingresa el dominio: "
     } until (ValidarDominio $dominio)
-    $IP = (Get-NetIPAddress -InterfaceAlias "Ethernet1" -AddressFamily IPv4).IPAddress
-    Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio"
-    Write-Host "Dominio creado: $dominio"
-    Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
-    Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
-    Add-DnsServerSecondaryZone -Name "$dominio" `
-    -MasterServers $IP `
-    -ZoneFile "$dominio.dns"
+    try{
+        $IP = (Get-NetIPAddress -InterfaceAlias "Ethernet1" -AddressFamily IPv4).IPAddress
+        Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio"
+        Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
+        Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
+        Add-DnsServerSecondaryZone -Name "$dominio" `
+        -MasterServers $IP `
+        -ZoneFile "$dominio.dns"
+        Write-Host "Dominio Creado: $dominio" -ForegroundColor Green
+    }
+    catch{
+        Write-Host  "No se asigno Dominio" -ForegroundColor Red
+    }
 }
 
 function Borrar{
     do {
         $dominio = Read-Host "Ingresa el dominio: "
     } until (ValidarDominio $dominio)
-    Remove-DnsServerZone -Name "$dominio" -Force
-    Write-Host "Dominio eliminado: $dominio"
+    try{
+        Remove-DnsServerZone -Name "$dominio" -Force
+        Write-Host "Dominio eliminado: $dominio" -ForegroundColor Green
+    }
+    catch{
+        Write-Host "No se elimino dominio: $dominio" -ForegroundColor Red
+    }
 }
 
 function Consultar{
@@ -160,7 +179,7 @@ function ABC{
         return
     }
 
-    Write-Host "Bienvenidio al ABC de DNS"
+    Write-Host "Bienvenidio al ABC de DNS" -ForegroundColor Yellow
     Write-Host "++++++++ Menu de Opciones ++++++++"
     Write-Host "1.-Agregar"
     Write-Host "2.-Borrar"
@@ -173,7 +192,7 @@ function ABC{
         2{Borrar}
         3{Consultar}
         4{return}
-        default{Write-Host "Opcion no valida"}
+        default{Write-Host "Opcion no valida" -ForegroundColor Red}
     }
 }
 
@@ -181,9 +200,9 @@ function Monitoreo{
     Write-Host "++++++++ Monitoreo del servidor DNS ++++++++"
     $dnsService = Get-Service -Name DNS -ErrorAction SilentlyContinue
     if ($dnsService -and $dnsService.Status -eq "Running"){
-        Write-Host "El servidor DNS esta activo"
+        Write-Host "El servidor DNS esta activo" -ForegroundColor Green
     }else{
-        Write-Host "El servidor DNS no esta activo"
+        Write-Host "El servidor DNS no esta activo" -ForegroundColor Red
         return
     }
     $zonas = Get-DnsServerZone -ErrorAction SilentlyContinue
@@ -192,7 +211,7 @@ function Monitoreo{
         Write-Host "Zonas configuradas"
         $zonas | Format-Table -Property ZoneName, ZoneType, IsReverseLookupZone
     }else{
-        Write-Host "No hay zonas configuradas"
+        Write-Host "No hay zonas configuradas" -ForegroundColor Red
     }
 
     foreach ($zona in $zonas){
@@ -204,7 +223,7 @@ function Monitoreo{
 $con = "S"
 
 while ($con -match '^[sS]$') {
-    Write-Host "Tarea 2: Automatizacion y Gestion del Servidor DNS"
+    Write-Host "Tarea 2: Automatizacion y Gestion del Servidor DNS"-ForegroundColor Yellow
     Write-Host "++++++++ Menu de Opciones ++++++++"
     Write-Host "1.-Verificar la presencia del servicio"
     Write-Host "2.-Instalar el servicio"
@@ -222,7 +241,7 @@ while ($con -match '^[sS]$') {
         5{ABC}
         6{Monitoreo}
         7{$con = "n"}
-        default{Write-Host "Opcion no valida"}
+        default{Write-Host "Opcion no valida" -ForegroundColor Red}
     }
 }
-Write-Host "Programa terminado."
+Write-Host "Programa terminado. -ForegroundColor Yellow"
