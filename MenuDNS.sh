@@ -149,6 +149,9 @@ Configurar() {
     return
     fi
 
+    read -p "Elige una opcion para  asignar la IP 1.-Ip fija o 2Ip personalizada" opcion
+    if [["$opcion"=="1"]]; then
+        echo "Elegiste opcion 1"
     if grep -q "static" /etc/network/interfaces.d/$INTERFAZ.cfg 2>/dev/null; then
 
     echo "Se asigno la IP fija"
@@ -184,6 +187,13 @@ EOF
     prefix=$(MaskToPrefix "$mascara")
     sudo ip addr add $IP_DNS/$prefix dev $INTERFAZ
     sudo ip link set $INTERFAZ up
+    elif [["$opcion"=="2"]]; then
+        echo "Elegiste opcion 2"
+        IP_DNS=$(PedirIp "IP del servidor DNS: ")
+    else
+        echo "Opcion invalida"
+    fi
+
     RED_INV=$(CalcularRedInversa "$IP_DNS")
 
     ConfigurarOpcionesBind
