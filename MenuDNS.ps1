@@ -81,7 +81,11 @@ function Configurar {
     return
     }
 
-    $adapter = Get-NetIPInterface -InterfaceAlias "Ethernet1" -AddressFamily IPv4
+    $opc = Read-Host "Opciones 1.-Asignar tu IP fija 2.-Asignar tu mismo la IP: "
+    if ($opc -eq 1) {
+        Write-Host "Elegiste opcion 1."
+
+            $adapter = Get-NetIPInterface -InterfaceAlias "Ethernet1" -AddressFamily IPv4
     if ($adapter.Dhcp -eq "Disabled"){
         Write-Host "Se cuenta con IP fija"
         $IP = (Get-NetIPAddress -InterfaceAlias "Ethernet1" -AddressFamily IPv4).IPAddress
@@ -103,6 +107,15 @@ function Configurar {
         }
     }
 
+    }
+    elseif ($opc -eq 2) {
+        Write-Host "Elegiste opcion 2."
+        $IP = Pedir-IP "IP perzonalizada: "
+    }
+    else {
+        Write-Host "Opcion no valida..."
+    }
+
     do {
         $dominio = Read-Host "Ingresa el dominio: "
     } until (ValidarDominio $dominio)
@@ -111,9 +124,6 @@ function Configurar {
         Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio.dns"
         Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
         Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
-        Add-DnsServerSecondaryZone -Name "$dominio" `
-        -MasterServers $IP `
-        -ZoneFile "$dominio.dns"
         Get-DnsServerZone -Name "$dominio"
         Get-DnsServerResourceRecord -ZoneName "$dominio"
         Write-Host "Se asigno Dominio: $dominio" -ForegroundColor Green
@@ -131,22 +141,7 @@ function Reconfigurar {
 }
 
 function Agregar{
-    do {
-        $dominio = Read-Host "Ingresa el dominio: "
-    } until (ValidarDominio $dominio)
-    try{
-        $IP = (Get-NetIPAddress -InterfaceAlias "Ethernet1" -AddressFamily IPv4).IPAddress
-        Add-DnsServerPrimaryZone -Name "$dominio" -ZoneFile "$dominio"
-        Add-DnsServerResourceRecordA -Name "@" -ZoneName "$dominio" -IPv4Address $IP
-        Add-DnsServerResourceRecordA -Name "www" -ZoneName "$dominio" -IPv4Address $IP
-        Add-DnsServerSecondaryZone -Name "$dominio" `
-        -MasterServers $IP `
-        -ZoneFile "$dominio.dns"
-        Write-Host "Dominio Creado: $dominio" -ForegroundColor Green
-    }
-    catch{
-        Write-Host  "No se asigno Dominio" -ForegroundColor Red
-    }
+    Configurar
 }
 
 function Borrar{
