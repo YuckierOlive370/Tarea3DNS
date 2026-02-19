@@ -206,12 +206,16 @@ zone "$DOMINIO" {
     type master;
     file "$ZONA_DIR";
 };
+EOF
 
+if ! grep -q "zone \"$RED_INV.in-addr.arpa\"" /etc/bind/named.conf.local; then
+cat <<EOF >> /etc/bind/named.conf.local
 zone "$RED_INV.in-addr.arpa" {
     type master;
     file "$ZONA_INV";
 };
 EOF
+fi
 
     # Crear zona directa
     cat <<EOF > $ZONA_DIR
