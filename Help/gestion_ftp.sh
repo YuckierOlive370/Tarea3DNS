@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ../Funciones/bash_fun_par.sh # Funcion parametros
+source ./bash_fun_par.sh # Funcion parametros
 
 verificar_root
 
@@ -511,107 +511,191 @@ listarGrupos() {
     echo -e "\e[34m--------------------------------------------------------\e[0m"
 }
 
-mostrar_menu() {
+menu_principal(){
 clear
-echo "=========================================="
-echo "        ADMINISTRACION SERVIDOR FTP"
-echo "=========================================="
+echo "+++++++++++++++++++++++++++++++++++++++++++"
+echo "        MENU SERVIDOR FTP"
+echo "+++++++++++++++++++++++++++++++++++++++++++"
 echo ""
-echo "1) Verificar existencia del servicio FTP"
-echo "2) Instalar servicio FTP"
-echo "3) Crear carpetas iniciales"
-echo "4) Desinstalar servicio FTP"
-echo "5) Estatus servicio FTP"
-echo "6) Cambiar usuario de grupo"
+echo "1.- Verificar presencia del servicio"
+echo "2.- Instalar servicio"
+echo "3.- Crear carpetas iniciales"
+echo "4.- Desinstalar servicio"
+echo "5.- Estado del servicio"
 echo ""
-echo "------ ABC Usuarios ------"
-echo "7) Agregar usuario"
-echo "8) Eliminar usuario"
-echo "9) Consultar usuarios"
+echo "6.- Cambiar usuario de grupo"
 echo ""
-echo "------ ABC Grupos ------"
-echo "10) Agregar grupo"
-echo "11) Eliminar grupo"
-echo "12) Consultar grupos"
+echo "7.- ABC Usuarios"
+echo "8.- ABC Grupos"
 echo ""
-echo "0) Salir"
+echo "0.- Salir"
 echo ""
-read -p "Seleccione una opcion: " option
-}
+read -p "Seleccione una opcion: " opcion
 
-while true; do
+case $opcion in
 
-mostrar_menu
-
-case "$option" in
-  1)
+1)
     check_service "vsftpd"
-    ;;
+    pause
+;;
 
-  2)
-    read -p "Confirmar instalacion (1=si): " install
-    install_service "vsftpd" "$install"
+2)
+    install_service "vsftpd" "1"
     configure_options
-    ;;
+    pause
+;;
 
-  3)
+3)
     configure_options
-    ;;
+    pause
+;;
 
-  4)
-    read -p "Confirmar desinstalacion (1=si): " confirm
-    uninstall_service "vsftpd" "$confirm"
-    ;;
+4)
+    uninstall_service "vsftpd" "1"
+    pause
+;;
 
-  5)
+5)
     status_service_systemctl "vsftpd"
-    ;;
+    pause
+;;
 
-  6)
+6)
     read -p "Usuario: " names
     read -p "Grupo: " groups
     change_groups "Alumno"
-    ;;
+    pause
+;;
 
-  7)
+7)
+    menu_usuarios
+;;
+
+8)
+    menu_grupos
+;;
+
+0)
+    exit
+;;
+
+*)
+    echo "Opcion invalida"
+    pause
+;;
+
+esac
+}
+
+# =====================================
+# ABC USUARIOS
+# =====================================
+
+menu_usuarios(){
+
+clear
+echo "++++++++++++++++++++++++++++++++++"
+echo "         ABC USUARIOS FTP"
+echo "++++++++++++++++++++++++++++++++++"
+echo ""
+echo "1.- Alta usuario"
+echo "2.- Baja usuario"
+echo "3.- Consultar usuarios"
+echo ""
+echo "0.- Volver"
+echo ""
+
+read -p "Seleccione una opcion: " opu
+
+case $opu in
+
+1)
     read -p "Numero de usuarios: " no_users
-    read -p "Usuarios (coma): " names
-    read -p "Passwords (coma): " passwords
+    read -p "Usuarios (separados por coma): " names
+    read -p "Passwords (separadas por coma): " passwords
     add_users2
-    ;;
+    pause
+;;
 
-  8)
-    read -p "Nombre del usuario a eliminar: " names
+2)
+    read -p "Nombre del usuario: " names
     deleteUser "$names" "Alumno"
-    ;;
+    pause
+;;
 
-  9)
+3)
     listarAlumnos "Alumno"
-    ;;
+    pause
+;;
 
-  10)
+0)
+    return
+;;
+
+*)
+    echo "Opcion invalida"
+    pause
+;;
+
+esac
+}
+
+# =====================================
+# ABC GRUPOS
+# =====================================
+
+menu_grupos(){
+
+clear
+echo "++++++++++++++++++++++++++++++++++"
+echo "         ABC GRUPOS FTP"
+echo "++++++++++++++++++++++++++++++++++"
+echo ""
+echo "1.- Alta grupo"
+echo "2.- Baja grupo"
+echo "3.- Consultar grupos"
+echo ""
+echo "0) Volver"
+echo ""
+
+read -p "Seleccione una opcion: " opg
+
+case $opg in
+
+1)
     read -p "Nombre del grupo: " groups
     crearGrupoAcademico "$groups"
-    ;;
+    pause
+;;
 
-  11)
-    read -p "Nombre del grupo a eliminar: " groups
+2)
+    read -p "Nombre del grupo: " groups
     deleteGroup "$groups"
-    ;;
+    pause
+;;
 
-  12)
+3)
     listarGrupos
-    ;;
+    pause
+;;
 
-  0)
-    echo "Saliendo..."
-    exit
-    ;;
+0)
+    return
+;;
 
-  *)
+*)
     echo "Opcion invalida"
-    ;;
+    pause
+;;
+
 esac
+}
+
+
+while true
+do
+menu_principal
+done
 
 echo ""
 read -p "Presione ENTER para continuar..."
